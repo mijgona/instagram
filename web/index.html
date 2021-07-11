@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Golang</title>
+</head>
+<body>
+    <h1>Обновление изображения пользователя</h1>
+    <form action="http://localhost:9999/api/user/img" method="POST" enctype="multipart/form-data">
+        ID: <input type="number" name="id"> Наберите id пользователя<br>
+        <input type="hidden" name="token" value="3bf5775dc3ffa91039a0f72da0eecd479eee448eec10c7a6ba616a512d534588aa8caf39ec1724ca3742e3e2fac97225a58d49476f63c0d32be58748b215eb4270cb1122743beaa57205ee0131f8fb007127a99f66a4268ccac590edc53fe550988ccea80a11941daef2f942bf871b3ec8ecdeaa366744c16f94e481960217b68d1995872d452ee961992165e0ebb9b37e3e1cbfb1a2e7c52cce1f044c0d6fa261a856990aae244b0721dbfb07fe6dcb4a8dc70c31a8b84e1aa3ae878d734bd00e5b8cb0def34d580a7e185e23ceb4d779978ea8e2a4caa4a9d993bf7b65ddfec531098002c7d4e560d0844659c4f3ebeb53d670fe33d7f6b1b58417b9819327">
+        Image: <input type="file" name="image"><br> 
+         <button>Отправить</button>
+    </form>
+    <h1>Создание поста</h1>
+    <form action="http://localhost:9999/api/user/post" method="POST" enctype="multipart/form-data">
+        Контент: <input type="text" name="content"><br>
+        Теги:<input type="text" name = "tags"><br>
+        <input type="hidden" name="token" value="cd1e6f06416bd743c645ecb46e0e97c5e05a0161f4c0559f925da56b56b24d15b20754c84df82bd8b0e23cc9e133d4f59224e6cc0fb4d2de8c92aba397ae2e7ff02914c7415e84b0efccde796bfa04d647bdbaf8cc287c7a8b3ea3990fa3ab2363e90c5db8edd2d36ab9b57811e87538ae7182a11036abd150a807105dddebb8d5d2bb0f17eff35ce0e73735f7c8234e558fedd55634eef970d5ea5cd5a6f8d7cc0cfefbb025c2219e02a3e1dc4d19f7ea1f5d4f1ec4c12ea2c7dc4157e476384f1776405e5519e12a26fc62b0dcc9f469305f6c09cfc4aa98929f883e76402ebb1a52be6842bd7a934f42a48e47fae3c28071e11e1daf989abceada00544d46">
+        Image: <input type="file" name="image"><br> 
+         <button>Отправить</button>
+    </form>
+</body>
+</html>

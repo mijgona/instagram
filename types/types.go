@@ -7,6 +7,8 @@ import (
 
 //ErrNotFound возвращается, когда пользователь не найден
 var ErrNoSuchUser = errors.New("no such user")
+//ErrNotFound возвращается, когда пост не найден
+var ErrNoSuchPost = errors.New("no such post")
 //ErrInternal возвращается, когда произошла внутренная ошибка
 var ErrInternal = errors.New("internal error")
 //ErrPhoneUsed возвращается, когда телефон уже зарегистрирован
@@ -21,12 +23,20 @@ var ErrNotAdmin = errors.New("not admin")
 
 
 
+//User представляет информацию о пользователе.
 
+type Wall struct {
+	User	User
+	Posts	[]Post
+}
 //User представляет информацию о пользователе.
 type User struct {
 	ID			int64		`json:"id"`
-	Name		string		`json:"name"`
+	UserName	string		`json:"username"`
 	Password	string		`json:"password"`
+	Follows 	[]Follow	`json:"follows"`	
+	Followers 	[]Follow	`json:"followers"`
+	Name		string		`json:"name"`
 	Photo		string		`json:"photo"`
 	Phone		string		`json:"phone"`
 	Bio			string		`json:"bio"`
@@ -40,6 +50,8 @@ type Follow struct {
 	ID			int64		`json:"id"`	
 	Avatar		string		`json:"avatar"`
 	Name		string		`json:"name"`
+	UserName	string		`json:"username"`
+	UserID		int64		`json:"user_id"`
 	Active		bool		`json:"active"`
 	Created		time.Time	`json:"created"`
 	
@@ -55,7 +67,7 @@ type Post struct {
 	}
 	Content		string		`json:"content"`
 	Photo		string		`json:"photo"`
-	Likes		string		`json:"likes"`
+	Likes		int			`json:"likes"`
 	LikedByMe	bool		`json:"liked_by_me"`
 	Tags		[]string	`json:"tags"`
 	Active		bool		`json:"active"`
@@ -63,13 +75,13 @@ type Post struct {
 }
 
 type Comment struct {
-	ID		int64			`json:"id"`	
-	Author struct{
+	ID			int64		`json:"id"`	
+	Author 	struct{
 		Avatar	string		`json:"avatar"`
 		Name	string		`json:"name"`
 	}
-	PostID	int64			`json:"post_id"`
-	Comment	int64			`json:"comment"`
+	PostID		int64		`json:"post_id"`
+	Comment		string		`json:"comment"`
 	Active		bool		`json:"active"`
 	Created		time.Time	`json:"created"`
 }
