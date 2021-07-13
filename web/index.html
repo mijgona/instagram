@@ -9,16 +9,15 @@
 <body>
     <h1>Обновление изображения пользователя</h1>
     <form action="http://localhost:9999/api/user/img" method="POST" enctype="multipart/form-data">
-        ID: <input type="number" name="id"> Наберите id пользователя<br>
-        <input type="hidden" name="token" value="3bf5775dc3ffa91039a0f72da0eecd479eee448eec10c7a6ba616a512d534588aa8caf39ec1724ca3742e3e2fac97225a58d49476f63c0d32be58748b215eb4270cb1122743beaa57205ee0131f8fb007127a99f66a4268ccac590edc53fe550988ccea80a11941daef2f942bf871b3ec8ecdeaa366744c16f94e481960217b68d1995872d452ee961992165e0ebb9b37e3e1cbfb1a2e7c52cce1f044c0d6fa261a856990aae244b0721dbfb07fe6dcb4a8dc70c31a8b84e1aa3ae878d734bd00e5b8cb0def34d580a7e185e23ceb4d779978ea8e2a4caa4a9d993bf7b65ddfec531098002c7d4e560d0844659c4f3ebeb53d670fe33d7f6b1b58417b9819327">
+        <input type="hidden" name="token" value="260227e1fa28910197e34af0f29ac7006eb68b21ee9b88874c172aff3aa8f92ac723e62fcb93843ef193406d351361fe9ad1f74f43422c1d4a680d65ff434d9c7393bcdecf604f3a10f6710dd02b295520a0f8b7505bf38fc7515edf7bdaaf0c245b45ef2c6d4f99870fa0dac0b06b01729f973812340eb9b9eb68855bfaa7bab623b82a1095bdec987698826d44890e2986832cb18b7b7d5847b8532be1e24cd56deb8ebfcb01bf782d44fbacea02699424bebba3be4580550b091f714228ee7f7f1b18425338a7b07b4c30c689e91ead63c7614fd9bf108e42cba74ddf0d962c1dbaa5afedf94bd2d0420709401311fbac2bbe8b7f87766acec67e1bc1d1bf">
         Image: <input type="file" name="image"><br> 
          <button>Отправить</button>
     </form>
     <h1>Создание поста</h1>
-    <form action="http://localhost:9999/api/user/post" method="POST" enctype="multipart/form-data">
+    <form action="http://localhost:9999/api/post" method="POST" enctype="multipart/form-data">
         Контент: <input type="text" name="content"><br>
         Теги:<input type="text" name = "tags"><br>
-        <input type="hidden" name="token" value="cd1e6f06416bd743c645ecb46e0e97c5e05a0161f4c0559f925da56b56b24d15b20754c84df82bd8b0e23cc9e133d4f59224e6cc0fb4d2de8c92aba397ae2e7ff02914c7415e84b0efccde796bfa04d647bdbaf8cc287c7a8b3ea3990fa3ab2363e90c5db8edd2d36ab9b57811e87538ae7182a11036abd150a807105dddebb8d5d2bb0f17eff35ce0e73735f7c8234e558fedd55634eef970d5ea5cd5a6f8d7cc0cfefbb025c2219e02a3e1dc4d19f7ea1f5d4f1ec4c12ea2c7dc4157e476384f1776405e5519e12a26fc62b0dcc9f469305f6c09cfc4aa98929f883e76402ebb1a52be6842bd7a934f42a48e47fae3c28071e11e1daf989abceada00544d46">
+        <input type="hidden" name="token" value="dab5be0e27d3cf53d3037a56b95b4628cabdb9d2264ccf18e4488f9222463018137a1b05ad9c6bc8d2477a501ba995c917596df53273e2db63b7fb9caffb9dfc136dde9806b0644babda0759789df81e4799acee66fa6a6d24cdbaf3c59da496ff2922a093e99e6ed82fe0b00bc39caa81f32478308ee2f5cf716d54939a7b7f03f89a0ecc1292de5bf8feb4988fe8a7bd34a7c73c7def3264eb43502ba7c29d82790498da77ce036baef8e2012103ae8b11a1a5108be9be30d7a061529c105d6eda1c191125eeaaccc1199966a3daa9ce94fe64b80c90d33697d4f7548af8e269d6785b4d969564ebe520d6d4ce88880c9f25d078fcce9f39f37edca0beda38">
         Image: <input type="file" name="image"><br> 
          <button>Отправить</button>
     </form>

@@ -10,7 +10,6 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/mijgona/instagram/cmd/app/middleware"
-	"github.com/mijgona/instagram/pkg/post"
 	"github.com/mijgona/instagram/types"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -25,7 +24,8 @@ func NewService(pool *pgxpool.Pool) *Service  {
 	return &Service{pool: pool}
 }
 
-func (s Service) EditUser(ctx context.Context, item *types.User, id int64) (*types.User, error)  {
+func (s Service) EditUser(ctx context.Context, item *types.User, auth middleware.Auth) (*types.User, error)  {
+	ctx = context.Background()
 	if item.ID==0 {
 		hash, err := bcrypt.GenerateFromPassword([]byte(item.Password), bcrypt.DefaultCost)
 		if err != nil {
@@ -40,8 +40,8 @@ func (s Service) EditUser(ctx context.Context, item *types.User, id int64) (*typ
 			return nil, types.ErrInternal
 		}
 	} else {
-		if item.ID != id{
-			log.Print("only admin can edit other users")
+		if item.ID != auth.ID{
+			log.Print("can edit other users")
 			return nil, types.ErrNotAdmin			
 		}
 		var hash []byte
@@ -85,31 +85,31 @@ func (s Service) EditUser(ctx context.Context, item *types.User, id int64) (*typ
 
 
 //удаляет пользователя
-func (s Service) DeleteUser(ctx context.Context, id int64) (error)  {		
+func (s Service) DeleteUser(ctx context.Context, auth middleware.Auth) (error)  {		
 		_, err := s.pool.Query(ctx, `
 			DELETE FROM users_tokens WHERE user_id=$1;
-			`, id)
+			`, auth.ID)
 		if err != nil {
 			log.Print("DeleteUser err:",err)
 			return types.ErrNoSuchUser
 		}	
 		_, err = s.pool.Query(ctx, `
 			DELETE FROM follows WHERE user_id=$1;
-			`, id)
+			`, auth.ID)
 		if err != nil {
 			log.Print("DeleteUser err:",err)
 			return types.ErrNoSuchUser
 		}	
 		_, err = s.pool.Query(ctx, `
 			DELETE FROM follows WHERE followed_id=$1;
-			`, id)
+			`, auth.ID)
 		if err != nil {
 			log.Print("DeleteUser err:",err)
 			return types.ErrNoSuchUser
 		}
 		_, err = s.pool.Query(ctx, `
 			DELETE FROM users WHERE id=$1;
-			`, id)
+			`, auth.ID)
 		if err != nil {
 			log.Print("DeleteUser err:",err)
 			return types.ErrNoSuchUser
@@ -120,23 +120,31 @@ func (s Service) DeleteUser(ctx context.Context, id int64) (error)  {
 
 
 //GetUser возвращает данные авторизованного пользователя, если введён username то его данные 
-func (s Service) GetUser(ctx context.Context, authID int64, username string) (*types.Wall, error)  {
-	id := authID
+func (s Service) GetUser(ctx context.Context, auth middleware.Auth, username string) (*types.User, error)  {
+	id := auth.ID
 	//при наличии имени пользователя, найти его ИД и в дальнейшем использовать его
 	if username != "" {
 		err := s.pool.QueryRow(ctx, `
-		SELECT id FROM users WHERE username=$1
+		SELECT id FROM users WHERE username=$1 and active
 		`, username).Scan(&id)
 		if err != nil {
+			if err == pgx.ErrNoRows{			
+				log.Print("GetUser err:",err)
+				return nil, types.ErrNoSuchUser
+			}
 			log.Print("GetUser err:",err)
 			return nil, types.ErrNoSuchUser
 		}
 	}
-	item := types.User{}
+	item := &types.User{}
 	err := s.pool.QueryRow(ctx, `
-		SELECT id, username, name, phone, photo, bio FROM users WHERE id=$1
+		SELECT id, username, name, phone, photo, bio FROM users WHERE id=$1 and active
 		`, id).Scan(&item.ID, &item.UserName, &item.Name, &item.Phone, &item.Photo, &item.Bio)
 	if err != nil {
+		if err == pgx.ErrNoRows{			
+			log.Print("GetUser err:",err)
+			return nil, types.ErrNoSuchUser
+		}
 		log.Print("GetUser err:",err)
 		return nil, types.ErrNoSuchUser
 	}
@@ -185,55 +193,9 @@ func (s Service) GetUser(ctx context.Context, authID int64, username string) (*t
 		item.Followers = append(item.Followers, follow)
 	}
 	rows.Close()
-	p := post.NewService(s.pool)
-	posts, err := p.GetAllPost(ctx, authID)
-		if err != nil {
-			log.Print("GetUser err:",err)
-			return nil, types.ErrInternal
-		}
-		wall := &types.Wall{
-			User: item,
-			Posts: posts,
-		}
-	return wall, nil
+	return item, nil
 }
 
-
-func (s Service) Wall(ctx context.Context, id int64) (*types.Wall, error)  {
-
-	item := types.User{}
-	
-	rows, err := s.pool.Query(ctx, `
-		SELECT f.id, u.photo, u.name, u.username, f.active, f.created FROM users u, follows f
-		WHERE u.id=f.user_id AND f.followed_id=$1 AND f.active
-	`, id)
-	if err != nil {
-		log.Print("GetUser err:",err)
-		return nil,  types.ErrNoSuchUser
-	}
-
-	for rows.Next() {
-		follow := types.Follow{}
-		err = rows.Scan(&follow.ID, &follow.Avatar, &follow.Name, &follow.UserName, &follow.Active, &follow.Created)
-		if err != nil {
-			log.Print("GetUser err:",err)
-			return nil, types.ErrInternal
-		}
-		item.Followers = append(item.Followers, follow)
-	}
-	rows.Close()
-	p := post.NewService(s.pool)
-	posts, err := p.GetAllPost(ctx, id)
-		if err != nil {
-			log.Print("GetUser err:",err)
-			return nil, types.ErrInternal
-		}
-		wall := &types.Wall{
-			User: item,
-			Posts: posts,
-		}
-	return wall, nil
-}
 
 //Follow подписывает авторизованного пользователя на выбранного
 func (s Service) Follow(ctx context.Context, item *types.Follow, id int64) (*types.Follow, error)  {
@@ -273,7 +235,7 @@ func (s *Service) Token(ctx context.Context, name string, password string) (toke
 	if err != nil {
 		log.Print("Token err:",err)
 		return "", types.ErrInvalidPassword
-	}
+	}	
 	err = s.pool.QueryRow(ctx, `SELECT id, password FROM users where username = $1`, name).Scan(&id, &hash)
 	if err == pgx.ErrNoRows {
 		log.Print("Token err:",err)
@@ -312,26 +274,31 @@ func (s *Service) IDByToken(ctx context.Context, token string) (middleware.Auth,
 	SELECT user_id, expire, created, roles from tokens WHERE token = $1
 	`, token).Scan(&auth.ID, &expire, &start, &roles)
 	if err == pgx.ErrNoRows {
+		log.Print("token not found")
 		return  middleware.Auth{
 			ID: 0,
 			IsAdmin: false,
 		}, nil
 	}
 	if err !=nil {
+		log.Print("token Err:", err)
 		return  middleware.Auth{
 			ID: 0,
 			IsAdmin: false,
 		}, nil
 	}
-	timeStart := time.Now().UTC().Format("2006-01-02 15:04:05")
+	timeNow := time.Now().UTC().Format("2006-01-02 15:04:05")
 	timeEnd := expire.Format("2006-01-02 15:04:05")
-
-	if timeStart > timeEnd {	
+	if timeNow > timeEnd {
 		log.Print("token expired")
 		return middleware.Auth{
 			ID: 0,
 			IsAdmin: false,
 		}, types.ErrTokenExpired
+	}
+
+	for _, role := range roles {
+		if role=="ADMIN"{auth.IsAdmin=true}
 	}
 	return auth, nil
 }

@@ -16,14 +16,13 @@ import (
 
 func (s *Server) handleGetUserByUsername(writer http.ResponseWriter, request *http.Request) {
 	auth, err := middleware.Authentication(request.Context())
-	id := auth.ID
 	if err != nil {
 		log.Print(err)	
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
-	if id == 0 {
+	if auth.ID == 0 {
 		log.Print(err)
 		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
@@ -35,7 +34,7 @@ func (s *Server) handleGetUserByUsername(writer http.ResponseWriter, request *ht
 		return
 	}
 
-	items, err := s.userSvc.GetUser(request.Context(), id, username)
+	items, err := s.userSvc.GetUser(request.Context(), auth, username)
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		log.Print(err)
@@ -62,19 +61,18 @@ func (s *Server) handleGetUserByUsername(writer http.ResponseWriter, request *ht
 
 func (s *Server) handleGetUser(writer http.ResponseWriter, request *http.Request) {
 	auth, err := middleware.Authentication(request.Context())
-	id := auth.ID
 	if err != nil {
 		log.Print(err)	
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
-	if id == 0 {
+	if auth.ID == 0 {
 		log.Print(err)
 		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
-	wall, err := s.userSvc.GetUser(request.Context(), id, "")
+	wall, err := s.userSvc.GetUser(request.Context(), auth, "")
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		log.Print(err)
@@ -96,43 +94,6 @@ func (s *Server) handleGetUser(writer http.ResponseWriter, request *http.Request
 
 }
 
-
-
-func (s *Server) handleGetWall(writer http.ResponseWriter, request *http.Request) {
-	auth, err := middleware.Authentication(request.Context())
-	id := auth.ID
-	if err != nil {
-		log.Print(err)	
-		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-
-	if id == 0 {
-		log.Print(err)
-		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-		return
-	}
-	wall, err := s.userSvc.Wall(request.Context(), id)
-	if err != nil {
-		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		log.Print(err)
-		return
-	}
-	data, err := json.Marshal(wall)
-	if err != nil {
-		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		log.Print(err)
-		return
-	}
-	writer.Header().Set("Content-Type", "application/json")
-	_, err = writer.Write(data)
-	if err != nil {
-		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		log.Print(err)
-		return
-	}
-
-}
 
 
 func (s *Server) handleUserFollow(writer http.ResponseWriter, request *http.Request) {
@@ -182,28 +143,27 @@ func (s *Server) handleUserFollow(writer http.ResponseWriter, request *http.Requ
 func (s *Server) handleUserEditImg(writer http.ResponseWriter, request *http.Request) {
 	item := &types.User{}
 	auth, err := middleware.Authentication(request.Context())
-	id := auth.ID
 	if err != nil {
 		log.Print(err)	
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
-	if id == 0 {
+	if auth.ID == 0 {
 		log.Print(err)
 		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
-	item.ID=id
+	item.ID=auth.ID
 	//сохраняем изображение   
-    item.Photo, err = saveImg(request, item.Photo, id)
+    item.Photo, err = saveImg(request, item.Photo)
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		log.Print(err)
 		return
 	}
 
-	item, err = s.userSvc.EditUser(request.Context(), item, id)
+	_, err = s.userSvc.EditUser(request.Context(), item, auth)
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		log.Print(err)
@@ -211,7 +171,7 @@ func (s *Server) handleUserEditImg(writer http.ResponseWriter, request *http.Req
 	}
 
 
-	data, err := json.Marshal(item)
+	data, err := json.Marshal([]byte("success"))
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		log.Print(err)
@@ -240,14 +200,14 @@ func (s *Server) handleUserEdit(writer http.ResponseWriter, request *http.Reques
 		log.Print(err)
 		return
 	}
-	item.Photo, err = saveImg(request, item.Photo, auth.ID)
+	item.Photo, err = saveImg(request, item.Photo)
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		log.Print(err)
 		return
 	}
 
-	item, err = s.userSvc.EditUser(request.Context(), item, auth.ID)
+	item, err = s.userSvc.EditUser(request.Context(), item, auth)
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		log.Print(err)
@@ -284,7 +244,7 @@ func (s *Server) handleUserEdit(writer http.ResponseWriter, request *http.Reques
 	}
 }
 
-func saveImg(request *http.Request, name string, id int64 ) (string, error) {
+func saveImg(request *http.Request, name string) (string, error) {
 	//генерируем случайную строку для имени файла
 	outStr := uuid.New()
 	//читаем файл
@@ -337,7 +297,7 @@ func (s *Server) handleUserDelete(writer http.ResponseWriter, request *http.Requ
 		return
 	}
 
-	err = s.userSvc.DeleteUser(request.Context(), id)
+	err = s.userSvc.DeleteUser(request.Context(), auth)
 	if err != nil {
 		log.Print(err)	
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)

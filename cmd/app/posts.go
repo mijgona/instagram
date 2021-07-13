@@ -15,14 +15,13 @@ import (
 
 func (s *Server) handleGetPostById(writer http.ResponseWriter, request *http.Request) {
 	auth, err := middleware.Authentication(request.Context())
-	id := auth.ID
 	if err != nil {
 		log.Print(err)
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
-	if id == 0 {
+	if auth.ID == 0 {
 		log.Print(err)
 		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
@@ -40,7 +39,7 @@ func (s *Server) handleGetPostById(writer http.ResponseWriter, request *http.Req
 		return
 	}
 
-	items, err := s.postSvc.GetPost(request.Context(), postId, id)
+	items, err := s.postSvc.GetPost(request.Context(), postId, auth)
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		log.Print(err)
@@ -63,20 +62,63 @@ func (s *Server) handleGetPostById(writer http.ResponseWriter, request *http.Req
 
 func (s *Server) handleGetAllPosts(writer http.ResponseWriter, request *http.Request) {
 	auth, err := middleware.Authentication(request.Context())
-	id := auth.ID
 	if err != nil {
 		log.Print(err)
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
-	if id == 0 {
+	if auth.ID == 0 {
 		log.Print(err)
 		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
 
-	items, err := s.postSvc.GetAllPost(request.Context(), id)
+	items, err := s.postSvc.GetAllPost(request.Context(), auth, "")
+	if err != nil {
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		log.Print(err)
+		return
+	}
+	
+	data, err := json.Marshal(items)
+	if err != nil {
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		log.Print(err)
+		return
+	}
+	writer.Header().Set("Content-Type", "application/json")
+	_, err = writer.Write(data)
+	if err != nil {
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		log.Print(err)
+		return
+	}
+
+}
+
+
+func (s *Server) handleGetUserAllPosts(writer http.ResponseWriter, request *http.Request) {
+	auth, err := middleware.Authentication(request.Context())
+	if err != nil {
+		log.Print(err)
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	if auth.ID == 0 {
+		log.Print(err)
+		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+
+	username, ok := mux.Vars(request)["username"]
+	if !ok {
+		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+
+	items, err := s.postSvc.GetAllPost(request.Context(), auth, username)
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		log.Print(err)
@@ -98,15 +140,15 @@ func (s *Server) handleGetAllPosts(writer http.ResponseWriter, request *http.Req
 
 }
 
+
 func (s *Server) handleNewPost(writer http.ResponseWriter, request *http.Request) {
 	auth, err := middleware.Authentication(request.Context())
-	id := auth.ID
 	if err != nil {
 		log.Print(err)
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
-	if id == 0 {
+	if auth.ID== 0 {
 		log.Print(err)
 		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
@@ -123,14 +165,14 @@ func (s *Server) handleNewPost(writer http.ResponseWriter, request *http.Request
 	}
 
 	//сохраняем изображение
-	item.Photo, err = saveImg(request, item.Photo, id)
+	item.Photo, err = saveImg(request, item.Photo)
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		log.Print(err)
 		return
 	}
 
-	item, err = s.postSvc.NewPost(request.Context(), id, item)
+	item, err = s.postSvc.NewPost(request.Context(), auth, item)
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		log.Print(err)
@@ -155,13 +197,12 @@ func (s *Server) handleNewPost(writer http.ResponseWriter, request *http.Request
 
 func (s *Server) handlePostDelete(writer http.ResponseWriter, request *http.Request) {
 	auth, err := middleware.Authentication(request.Context())
-	id := auth.ID
 	if err != nil {
 		log.Print(err)
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
-	if id == 0 {
+	if auth.ID == 0 {
 		log.Print(err)
 		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
@@ -179,7 +220,7 @@ func (s *Server) handlePostDelete(writer http.ResponseWriter, request *http.Requ
 		return
 	}
 
-	err = s.postSvc.DeletePost(request.Context(), postID, id)
+	err = s.postSvc.DeletePost(request.Context(), postID, auth)
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		log.Print(err)

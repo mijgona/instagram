@@ -68,7 +68,7 @@ CREATE TABLE comments
 
 
 -- DROP TABLE users;
-DROP TABLE tokens;
+-- DROP TABLE tokens;
 -- drop table follows;
 -- drop table comments;
 -- drop table likes;

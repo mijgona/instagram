@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
 	"github.com/mijgona/instagram/cmd/app/middleware"
@@ -101,7 +102,7 @@ func (s *Server) handleGetAdmin(writer http.ResponseWriter, request *http.Reques
 		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
-	item, err := s.adminSvc.GetAdmin(request.Context(), auth.ID)
+	item, err := s.adminSvc.GetAdmin(request.Context(), auth)
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		log.Print(err)
@@ -142,7 +143,7 @@ func (s *Server) handleAdminActiveUser(writer http.ResponseWriter, request *http
 		return
 	}
 
-	item, err := s.adminSvc.ActiveUser(request.Context(), auth.ID, username)
+	item, err := s.adminSvc.ActiveUser(request.Context(), auth, username)
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		log.Print(err)
@@ -183,7 +184,7 @@ func (s *Server) handleAdminBlockUser(writer http.ResponseWriter, request *http.
 		return
 	}
 
-	item, err := s.adminSvc.BlockUser(request.Context(), auth.ID, username)
+	item, err := s.adminSvc.BlockUser(request.Context(), auth, username)
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		log.Print(err)
@@ -224,7 +225,7 @@ func (s *Server) handleAdminDeleteUser(writer http.ResponseWriter, request *http
 		return
 	}
 
-	err = s.adminSvc.DeleteUser(request.Context(), auth.ID, username)
+	err = s.adminSvc.DeleteUser(request.Context(), auth, username)
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		log.Print(err)
@@ -253,7 +254,7 @@ func (s *Server) handleAdminGetBlockedUsers(writer http.ResponseWriter, request 
 		return
 	}
 
-	item, err := s.adminSvc.BlockUser(request.Context(), auth.ID, "")
+	item, err := s.adminSvc.BlockUser(request.Context(), auth, "")
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		log.Print(err)
@@ -289,7 +290,7 @@ func (s *Server) handleAdminGetActiveUsers(writer http.ResponseWriter, request *
 		return
 	}
 
-	item, err := s.adminSvc.ActiveUser(request.Context(), auth.ID, "")
+	item, err := s.adminSvc.ActiveUser(request.Context(), auth, "")
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		log.Print(err)
@@ -303,6 +304,145 @@ func (s *Server) handleAdminGetActiveUsers(writer http.ResponseWriter, request *
 	}
 	writer.Header().Set("Content-Type", "application/json")
 	_, err = writer.Write(data)
+	if err != nil {
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		log.Print(err)
+		return
+	}
+
+}
+
+
+func (s *Server) handleAdminActivePost(writer http.ResponseWriter, request *http.Request) {
+	auth, err := middleware.Authentication(request.Context())
+	if err != nil {
+		log.Print(err)
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	if auth.ID == 0 || !auth.IsAdmin {
+		log.Print(err)
+		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+	postIdString, ok := mux.Vars(request)["postid"]
+	if !ok {
+		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+	
+	postID, err := strconv.ParseInt(postIdString, 10, 64)
+	if err != nil {
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		log.Print(err)
+		return
+	}
+
+	item, err := s.adminSvc.ActivePost(request.Context(), auth, postID)
+	if err != nil {
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		log.Print(err)
+		return
+	}
+	data, err := json.Marshal(item)
+	if err != nil {
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		log.Print(err)
+		return
+	}
+	writer.Header().Set("Content-Type", "application/json")
+	_, err = writer.Write(data)
+	if err != nil {
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		log.Print(err)
+		return
+	}
+
+}
+
+func (s *Server) handleAdminBlockPost(writer http.ResponseWriter, request *http.Request) {
+	auth, err := middleware.Authentication(request.Context())
+	if err != nil {
+		log.Print(err)
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	if auth.ID == 0 || !auth.IsAdmin {
+		log.Print(err)
+		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+	postIdString, ok := mux.Vars(request)["postid"]
+	if !ok {
+		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+	
+	postID, err := strconv.ParseInt(postIdString, 10, 64)
+	if err != nil {
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		log.Print(err)
+		return
+	}
+
+	item, err := s.adminSvc.BlockPost(request.Context(), auth, postID)
+	if err != nil {
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		log.Print(err)
+		return
+	}
+	data, err := json.Marshal(item)
+	if err != nil {
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		log.Print(err)
+		return
+	}
+	writer.Header().Set("Content-Type", "application/json")
+	_, err = writer.Write(data)
+	if err != nil {
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		log.Print(err)
+		return
+	}
+}
+
+func (s *Server) handleAdminDeletePost(writer http.ResponseWriter, request *http.Request) {
+	auth, err := middleware.Authentication(request.Context())
+	if err != nil {
+		log.Print(err)
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	if auth.ID == 0 || !auth.IsAdmin {
+		log.Print(err)
+		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+	postIdString, ok := mux.Vars(request)["postid"]
+	if !ok {
+		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+	
+	postID, err := strconv.ParseInt(postIdString, 10, 64)
+	if err != nil {
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		log.Print(err)
+		return
+	}
+
+	err = s.postSvc.DeletePost(request.Context(), postID, auth)
+	if err != nil {
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		log.Print(err)
+		return
+	}
+
+	writer.Header().Set("Content-Type", "application/json")
+	_, err = writer.Write([]byte("success"))
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		log.Print(err)

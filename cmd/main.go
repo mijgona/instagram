@@ -13,7 +13,6 @@ import (
 	"github.com/mijgona/instagram/pkg/user"
 	"github.com/mijgona/instagram/pkg/admin"
 	"github.com/mijgona/instagram/pkg/post"
-	"github.com/mijgona/instagram/pkg/comment"
 	"go.uber.org/dig"
 )
 
@@ -37,7 +36,6 @@ func execute(host string, port string, dsn string) (err error) {
 		user.NewService,
 		admin.NewService,
 		post.NewService,
-		comment.NewService,
 		func () (*pgxpool.Pool, error) {
 			ctx, _ :=context.WithTimeout(context.Background(), time.Second*5)
 			return pgxpool.Connect(ctx, dsn)

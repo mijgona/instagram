@@ -6,6 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/mijgona/instagram/cmd/app/middleware"
 	"github.com/mijgona/instagram/types"
 )
 
@@ -20,7 +21,7 @@ func NewService(pool *pgxpool.Pool) *Service  {
 }
 
 
-func (s Service) GetPost(ctx context.Context, postID int64, id int64) (*types.Post, error) {
+func (s Service) GetPost(ctx context.Context, postID int64, auth middleware.Auth) (*types.Post, error) {
 	item := &types.Post{}
 	err := s.pool.QueryRow(ctx, `SELECT p.id, u.username, p.content, p.photo, p.tags, p.active, u.photo, COALESCE(count(p.id),0) from users u
 	JOIN posts p ON u.id=p.user_id and p.id=$1 and p.active
@@ -37,8 +38,8 @@ func (s Service) GetPost(ctx context.Context, postID int64, id int64) (*types.Po
 	}
 	like := 0
 	err = s.pool.QueryRow(ctx, `
-		SELECT user_id from likes WHERE user_id=$1 AND post_id=$2
-		`, id, item.ID).Scan(&like)
+		SELECT user_id from likes WHERE user_id=$1 AND post_id=$2 and active
+		`, auth.ID, item.ID).Scan(&like)
 	if err != nil && err != pgx.ErrNoRows {
 		log.Print("GetPost err:", err)
 		return nil, types.ErrInternal
@@ -47,7 +48,22 @@ func (s Service) GetPost(ctx context.Context, postID int64, id int64) (*types.Po
 	return item, nil
 }
 
-func (s Service) GetAllPost(ctx context.Context, userID int64) ([]types.Post, error) {
+func (s Service) GetAllPost(ctx context.Context, auth middleware.Auth, username string) ([]types.Post, error) {
+	id := auth.ID
+	if username != "" {
+		err := s.pool.QueryRow(ctx, `
+		SELECT id FROM users WHERE username=$1 and active
+		`, username).Scan(&id)
+		if err != nil {
+			if err == pgx.ErrNoRows{			
+				log.Print("GetUser err:",err)
+				return nil, types.ErrNoSuchUser
+			}
+			log.Print("GetUser err:",err)
+			return nil, types.ErrNoSuchUser
+		}
+	}
+
 	items := []types.Post{}
 	rows, err := s.pool.Query(ctx, `
 	SELECT p.id, u.username, p.content, p.photo, p.tags, p.active, u.photo, COALESCE(count(p.id),0) likes from users u
@@ -59,7 +75,7 @@ func (s Service) GetAllPost(ctx context.Context, userID int64) ([]types.Post, er
 		) ss ON ss.post_id=p.id
 	GROUP BY u.id, p.id
 	ORDER BY p.created DESC
-	`, userID)
+	`,id)
 	if err != nil {
 		log.Print("GetAllPosts err:", err)
 		return nil, types.ErrNoSuchPost
@@ -74,25 +90,37 @@ func (s Service) GetAllPost(ctx context.Context, userID int64) ([]types.Post, er
 		}
 		like := 0
 		err = s.pool.QueryRow(ctx, `
-			SELECT user_id from likes WHERE user_id=$1 AND post_id=$2
-			`, userID, item.ID).Scan(&like)
+			SELECT user_id from likes WHERE user_id=$1 AND post_id=$2 and active
+			`, id, item.ID).Scan(&like)
+		if err != nil && err != pgx.ErrNoRows {
+			log.Print("GetAllPosts err:", err)
+			return nil, types.ErrInternal
+		}
+		cmnts, err := s.GetComments(ctx, item.ID)
 		if err != nil && err != pgx.ErrNoRows {
 			log.Print("GetAllPosts err:", err)
 			return nil, types.ErrInternal
 		}
 		if like !=0 {item.LikedByMe = true}
+		item.Comments =  cmnts
 		items = append(items, item)
 	}
 	rows.Close()
 	return items, nil
 }
 
-func (s Service) NewPost(ctx context.Context, userID int64, item *types.Post) (*types.Post, error) {
-	ctx = context.Background()
+func (s Service) NewPost(ctx context.Context, auth middleware.Auth, item *types.Post) (*types.Post, error) {
 	if item.ID==0 {
 		err := s.pool.QueryRow(ctx, `
 			INSERT INTO posts(user_id, content, photo, tags) VALUES ($1, $2, $3, $4) RETURNING id;
-		`, userID, item.Content, item.Photo, item.Tags).Scan(&item.ID)
+		`, auth.ID, item.Content, item.Photo, item.Tags).Scan(&item.ID)
+		if err != nil {
+			log.Print("NewPost err:", err)
+			return nil, types.ErrInternal
+		}
+		_, err = s.pool.Query(ctx, `		
+			INSERT INTO likes(user_id, post_id)VALUES ($1, $2);
+		`, auth.ID, item.ID)
 		if err != nil {
 			log.Print("NewPost err:", err)
 			return nil, types.ErrInternal
@@ -101,16 +129,17 @@ func (s Service) NewPost(ctx context.Context, userID int64, item *types.Post) (*
 	return item, nil
 }
 
-func (s Service) DeletePost(ctx context.Context, postID int64, id int64) (error) {
-	
+func (s Service) DeletePost(ctx context.Context, postID int64, auth middleware.Auth) (error) {
 	if postID !=0 {
 		postUserID := int64(0)
 		err := s.pool.QueryRow(ctx, `
 		SELECT user_id FROM posts WHERE id=$1;
 		`, postID).Scan(&postUserID)
-		if postUserID != id {
-			log.Print("NewPost err:", types.ErrNotAdmin)
-			return types.ErrNotAdmin
+		if postUserID != auth.ID{
+			if !auth.IsAdmin{
+				log.Print("NewPost err:", types.ErrNotAdmin)
+				return types.ErrNotAdmin
+			}
 		}
 		if err != nil {
 			log.Print("NewPost err:", err)
@@ -162,5 +191,76 @@ func (s Service) LikePost(ctx context.Context, postID int64, userID int64) (erro
 			return types.ErrInternal
 		}
 	}
+	return nil
+}
+
+
+func (s Service) NewComment(ctx context.Context, userID int64, item *types.Comment) (*types.Comment, error) {
+	if item.ID==0 {
+		err := s.pool.QueryRow(ctx, `
+			INSERT INTO comments(user_id, post_id, comment) VALUES ($1, $2, $3) RETURNING id;
+		`, userID, item.PostID, item.Comment).Scan(&item.ID)
+		if err != nil {
+			log.Print("NewComment err:", err)
+			return nil, types.ErrInternal
+		}	
+	} 
+	return item, nil
+}
+
+func (s Service) GetComments(ctx context.Context, postID int64) ([]types.Comment, error) {
+	var items []types.Comment
+	if postID!=0 {
+		rows, err := s.pool.Query(context.Background(), `
+			SELECT c.id, u.name, u.photo, c.comment, c.active FROM users u, comments c 
+			WHERE c.user_id=u.id AND c.post_id=$1 ORDER BY c.created DESC
+		`, postID)
+		if err != nil {
+			log.Print("GetComment err:", err)
+			return nil, types.ErrInternal
+		}	
+
+		for rows.Next() {
+			item := types.Comment{
+				PostID:      postID,
+			}
+			err = rows.Scan(&item.ID, &item.Author.Name, &item.Author.Avatar, &item.Comment, &item.Active)
+			if err != nil {
+				log.Print("GetComment err:",err)
+				return nil, err
+			}
+			
+			items = append(items, item)
+		}
+		rows.Close()
+	} 
+	return items, nil
+}
+
+func (s Service) DeleteComment(ctx context.Context, cmntID int64, id int64) (error) {
+	
+	if cmntID !=0 {
+		commentUserID := int64(0)
+		err := s.pool.QueryRow(ctx, `
+		SELECT user_id FROM comments WHERE id=$1;
+		`, cmntID).Scan(&commentUserID)
+		if commentUserID != id {
+			log.Print("DeleteComment err:", types.ErrNotAdmin)
+			return types.ErrNotAdmin
+		}
+		if err != nil {
+			log.Print("DeleteComment err:", err)
+			return types.ErrInternal
+		}
+
+		
+		_, err = s.pool.Query(ctx, `
+			DELETE FROM comments WHERE id=$1;
+		`, cmntID)
+		if err != nil {
+			log.Print("DeleteComment err:", err)
+			return types.ErrInternal
+		}	
+	} 
 	return nil
 }

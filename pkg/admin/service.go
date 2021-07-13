@@ -54,26 +54,70 @@ func (s Service) Register(ctx context.Context, item *types.User, auth middleware
 }
 
 //GetAdmin выводит данные авторизованного админа
-func (s Service) GetAdmin(ctx context.Context, id int64) (*types.User, error)  {
+func (s Service) GetAdmin(ctx context.Context, auth middleware.Auth) (*types.User, error)  {
+	if auth.IsAdmin{
 	item := &types.User{}
 	err := s.pool.QueryRow(ctx, `
 		SELECT id, username, name, phone, roles, photo, bio, active FROM users WHERE id=$1
-		`, id).Scan(&item.ID, &item.UserName, &item.Name, &item.Phone, &item.Roles, &item.Photo, &item.Bio, &item.Active)
+		`, auth.ID).Scan(&item.ID, &item.UserName, &item.Name, &item.Phone, &item.Roles, &item.Photo, &item.Bio, &item.Active)
 	if err != nil {
 		log.Print("GetAdmin err:",err)
 		return nil, types.ErrNoSuchUser
 	}
 	return item, nil
 }
+	return nil, types.ErrNotAdmin
+}
 
+//ActivePost активирует выбранный пост
+func (s Service) ActivePost(ctx context.Context, auth middleware.Auth, postID int64) (*types.Post, error)  {
+	item := &types.Post{}
+	if !auth.IsAdmin {
+			log.Print("ActivePost err:","not admin")
+			return nil, types.ErrNotAdmin	
+	}
+	if postID != 0{
+		err := s.pool.QueryRow(ctx, `
+			UPDATE posts SET active = true WHERE id=$1 RETURNING id, content, photo;
+			`, postID).Scan(&item.ID, &item.Content, &item.Photo)
+		if err != nil {
+			log.Print("ActiveUser err:",err)
+			return nil, types.ErrNoSuchUser
+		}
+	} 
+	return item, nil
+}
+
+//BlockPost блокирует выбранный пост
+func (s Service) BlockPost(ctx context.Context, auth middleware.Auth, postID int64) (*types.Post, error)  {
+	item := &types.Post{}
+	if !auth.IsAdmin {
+			log.Print("BlockPost err:","not admin")
+			return nil, types.ErrNotAdmin	
+	}
+	if postID != 0{
+		err := s.pool.QueryRow(ctx, `
+			UPDATE posts SET active = false WHERE id=$1 RETURNING id, content, photo;
+			`, postID).Scan(&item.ID, &item.Content, &item.Photo)
+		if err != nil {
+			log.Print("BlockUser err:",err)
+			return nil, types.ErrNoSuchUser
+		}
+	} 
+	return item, nil
+}
 
 //ActiveUser выводит список всех активных пользователей, если введен username активирует выбранного пользователя
-func (s Service) ActiveUser(ctx context.Context, id int64, username string) ([]*types.User, error)  {
+func (s Service) ActiveUser(ctx context.Context, auth middleware.Auth, username string) ([]*types.User, error)  {
 	items := []*types.User{}
-	if username != "" {
+	if !auth.IsAdmin {
+			log.Print("ActiveUser err:","not admin")
+			return nil, types.ErrNotAdmin	
+	}
+	if username != ""{
 		item := types.User{}
 		err := s.pool.QueryRow(ctx, `
-			UPDATE users SET active = true WHERE username=$1 RETURNING id, username, name, phone, roles, photo, bio, active LIMIT 300;
+			UPDATE users SET active = true WHERE username=$1 RETURNING id, username, name, phone, roles, photo, bio, active;
 			`, username).Scan(&item.ID, &item.UserName, &item.Name, &item.Phone, &item.Roles, &item.Photo, &item.Bio, &item.Active)
 		if err != nil {
 			log.Print("ActiveUser err:",err)
@@ -82,7 +126,7 @@ func (s Service) ActiveUser(ctx context.Context, id int64, username string) ([]*
 		items = append(items, &item)
 	} else {
 		rows, err := s.pool.Query(ctx, `
-			SELECT id, username, name, phone, roles, photo, bio, active FROM users WHERE active
+			SELECT id, username, name, phone, roles, photo, bio, active FROM users WHERE active  LIMIT 300;
 			`)
 		if err != nil {
 			log.Print("ActiveUser err:",err)
@@ -108,8 +152,12 @@ func (s Service) ActiveUser(ctx context.Context, id int64, username string) ([]*
 }
 
 //BlockUser выводит список всех заблокированных пользователей, если введен username блокирует выбранного пользователя
-func (s Service) BlockUser(ctx context.Context, id int64, username string) ([]*types.User, error)  {
+func (s Service) BlockUser(ctx context.Context, auth middleware.Auth, username string) ([]*types.User, error)  {
 	items := []*types.User{}
+	if !auth.IsAdmin {
+		log.Print("BlockUser err:","not admin")
+		return nil, types.ErrNotAdmin	
+}
 	if username != "" {
 		item := types.User{}
 		err := s.pool.QueryRow(ctx, `
@@ -147,14 +195,65 @@ func (s Service) BlockUser(ctx context.Context, id int64, username string) ([]*t
 	return items, nil
 }
 //DeleteUser удаляет выбранного пользователя
-func (s Service) DeleteUser(ctx context.Context, id int64, username string) ( error)  {
-		_, err := s.pool.Query(ctx, `
-			DELETE FROM users WHERE username=$1
-		`, username)
-		if err != nil {
-			log.Print("DeleteUser err:",err)
-			return types.ErrNoSuchUser
-		}
+func (s Service) DeleteUser(ctx context.Context, auth middleware.Auth, username string) ( error)  {
+	if !auth.IsAdmin {
+		log.Print("DeleteUser err:","not admin")
+		return types.ErrNotAdmin	
+	}
+	id := int64(0)
+	err := s.pool.QueryRow(ctx, `
+	SELECT id FROM users WHERE username=$1;
+	`, username).Scan(&id)
+	if err != nil {
+		log.Print("DeleteUser err:",err)
+		return types.ErrNoSuchUser
+	}
+	
+	_, err = s.pool.Query(ctx, `
+	DELETE FROM likes WHERE user_id=$1;
+	`, id)
+	if err != nil {
+		log.Print("DeleteUser err:",err)
+		return types.ErrNoSuchUser
+	}
+
+	_, err = s.pool.Query(ctx, `
+	DELETE FROM comments WHERE user_id=$1;
+	`, id)
+	if err != nil {
+		log.Print("DeleteUser err:",err)
+		return types.ErrNoSuchUser
+	}
+
+	_, err = s.pool.Query(ctx, `
+	DELETE FROM follows WHERE user_id=$1;
+	`, id)
+	if err != nil {
+		log.Print("DeleteUser err:",err)
+		return types.ErrNoSuchUser
+	}
+
+	_, err = s.pool.Query(ctx, `
+	DELETE FROM posts WHERE user_id=$1;
+	`, id)
+	if err != nil {
+		log.Print("DeleteUser err:",err)
+		return types.ErrNoSuchUser
+	}
+	_, err = s.pool.Query(ctx, `
+	DELETE FROM tokens WHERE user_id=$1;
+	`, id)
+	if err != nil {
+		log.Print("DeleteUser err:",err)
+		return types.ErrNoSuchUser
+	}
+	_, err = s.pool.Query(ctx, `
+	DELETE FROM users WHERE username=$1;
+	`, username)
+	if err != nil {
+		log.Print("DeleteUser err:",err)
+		return types.ErrNoSuchUser
+	}
 		return nil
 }
 	
@@ -183,7 +282,7 @@ func (s *Service) Token(ctx context.Context, name string, password string) (toke
 	}
 
 	token = hex.EncodeToString(buffer)
-	_, err = s.pool.Exec(ctx, `INSERT INTO tokens(token, user_id, roles) VALUES($1, $2, $3);`, token, id, roles)
+	_, err = s.pool.Exec(ctx, `INSERT INTO tokens(token, user_id, roles, expire) VALUES($1, $2, $3, $4);`, token, id, roles, time.Now().UTC().Add(time.Hour))
 	if err != nil {
 		log.Print("Token err:",err)
 		return "", types.ErrInternal
@@ -192,7 +291,7 @@ func (s *Service) Token(ctx context.Context, name string, password string) (toke
 	return token, nil
 }
 
-//IDByToken возвращает ИД для авторизации
+//IDByToken возвращает ИД для авторизации admin
 func (s *Service) IDByToken(ctx context.Context, token string) (middleware.Auth, error)  {
 	var auth middleware.Auth
 	var expire time.Time

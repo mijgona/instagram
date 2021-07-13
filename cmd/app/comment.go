@@ -26,16 +26,19 @@ func (s *Server) handleGetComments(writer http.ResponseWriter, request *http.Req
 		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
-	
-	item := &types.Comment{}
-	err = json.NewDecoder(request.Body).Decode(&item)
+	postIdString, ok := mux.Vars(request)["postid"]
+	if !ok {
+		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+	postID, err := strconv.ParseInt(postIdString, 10, 64)
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		log.Print(err)
 		return
 	}
 
-	items, err := s.cmntSvc.GetComments(request.Context(), item.PostID)
+	items, err := s.postSvc.GetComments(request.Context(), postID)
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		log.Print(err)
@@ -80,7 +83,7 @@ func (s *Server) handleNewComment(writer http.ResponseWriter, request *http.Requ
 		return
 	}
 
-	item, err = s.cmntSvc.NewComment(request.Context(), id, item)
+	item, err = s.postSvc.NewComment(request.Context(), id, item)
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		log.Print(err)
@@ -118,19 +121,19 @@ func (s *Server) handleCommentDelete(writer http.ResponseWriter, request *http.R
 		return
 	}
 
-	postIdString, ok := mux.Vars(request)["commentid"]
+	cmntIdString, ok := mux.Vars(request)["commentid"]
 	if !ok {
 		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
-	postID, err := strconv.ParseInt(postIdString, 10, 64)
+	cmntID, err := strconv.ParseInt(cmntIdString, 10, 64)
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		log.Print(err)
 		return
 	}
 
-	err = s.cmntSvc.DeleteComment(request.Context(), postID, id)
+	err = s.postSvc.DeleteComment(request.Context(), cmntID, id)
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		log.Print(err)

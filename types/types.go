@@ -69,6 +69,7 @@ type Post struct {
 	Photo		string		`json:"photo"`
 	Likes		int			`json:"likes"`
 	LikedByMe	bool		`json:"liked_by_me"`
+	Comments	[]Comment	`json:"comments"`
 	Tags		[]string	`json:"tags"`
 	Active		bool		`json:"active"`
 	Created		time.Time	`json:"created"`

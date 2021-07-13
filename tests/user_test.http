@@ -1,0 +1,38 @@
+###Аутентификация пользователя
+POST http://localhost:9999/api/user/auth
+Content-Type: application/json
+
+{
+    "username":"mij",
+    "password":"qwertiop12"
+}
+
+###Добавление нового пользователя
+POST http://localhost:9999/api/user
+Content-Type: application/json
+
+{
+    "id":0,
+    "name":"Katya12",
+    "username":"mij",
+    "phone":"+9929019534122",
+    "password":"qwertiop12"
+}
+#### Подписаться
+POST http://localhost:9999/api/user/follow
+Authorization: b32efd4041a897fd3146b99ce5c01248205b3916966db94fda1d192d7b296571b863237427d6a8616691231bc2ec8e71eced13a1eab2a50823d56e97d4c8b1e88b32bc7f99334b22e5f88391746262c187d9fd3831e828ac4dec149fda3a224cf07f4dfda1cd8dd7b5cc812a0ad26e0bf7fdf764722537533c4db2700c025f4d9cb9e34afc7848fd2d062e0b5c085e5e7416012bfb9432aa65624ae916da0b0aeaba54fe0dadfe43129cef8f32517f63e8d511ac96cd9e554a678242284e38fc6d1148d49026f3dd4d519113354bd7d0470c8e73da943c1f88b5455bf9a85e1f41a6117b61e250985283e6a7259e7f95449c3830b373907ca29765f92e1e5288
+Content-Type: application/json 
+
+{
+    "user_id":17
+}
+##### Данные авторизованного пользователя
+GET http://localhost:9999/api/user
+Authorization: b32efd4041a897fd3146b99ce5c01248205b3916966db94fda1d192d7b296571b863237427d6a8616691231bc2ec8e71eced13a1eab2a50823d56e97d4c8b1e88b32bc7f99334b22e5f88391746262c187d9fd3831e828ac4dec149fda3a224cf07f4dfda1cd8dd7b5cc812a0ad26e0bf7fdf764722537533c4db2700c025f4d9cb9e34afc7848fd2d062e0b5c085e5e7416012bfb9432aa65624ae916da0b0aeaba54fe0dadfe43129cef8f32517f63e8d511ac96cd9e554a678242284e38fc6d1148d49026f3dd4d519113354bd7d0470c8e73da943c1f88b5455bf9a85e1f41a6117b61e250985283e6a7259e7f95449c3830b373907ca29765f92e1e5288
+
+########## удаление пользователя
+DELETE http://localhost:9999/api/user
+Authorization: 2a17b7ff2aca10f758c0ad16c3f62c2cd6a20254078936809298a364545bd34701e3b1dd66ab0e2fb5e26cc3dbadd2e3452347464e21b04e4e2776350f51d6dbeb8716ee2cc6f473fcd4c75ba936ca83ca015952f6203dfd8e183351798b0f325f7b194058e4ba73b20a1ce600fd323be2d87700a1b775227ea921caa530577575d599f1ba2569a860f799aa7c2f3c4b56a7283f41692666ac2fd6affad43a9ca40728ff21d8dcf6c2717976f6d3cdea9cdc36a6c290c901efd42851602801c5731482bba377bb7e0ced0fb829850be9477516e9d4943be9f4cc2eee35c277b47d3993a5c73e9030a98fd5997f2346e91765b03feb0fed8dc2826019b76cd402
+Content-Type: application/json
+
+
