@@ -291,39 +291,39 @@ func (s *Service) Token(ctx context.Context, name string, password string) (toke
 	return token, nil
 }
 
-//IDByToken возвращает ИД для авторизации admin
-func (s *Service) IDByToken(ctx context.Context, token string) (middleware.Auth, error)  {
-	var auth middleware.Auth
-	var expire time.Time
-	var roles []string
-	err := s.pool.QueryRow(ctx, `
-	SELECT user_id, expire, roles from tokens WHERE token = $1
-	`, token).Scan(&auth.ID, &expire, &roles)
-	if err == pgx.ErrNoRows {
-		return  middleware.Auth{
-			ID: 0,
-			IsAdmin: false,
-		}, nil
-	}
-	if err !=nil {
-		return  middleware.Auth{
-			ID: 0,
-			IsAdmin: false,
-		}, nil
-	}
+// //IDByToken возвращает ИД для авторизации admin
+// func (s *Service) IDByToken(ctx context.Context, token string) (middleware.Auth, error)  {
+// 	var auth middleware.Auth
+// 	var expire time.Time
+// 	var roles []string
+// 	err := s.pool.QueryRow(ctx, `
+// 	SELECT user_id, expire, roles from tokens WHERE token = $1
+// 	`, token).Scan(&auth.ID, &expire, &roles)
+// 	if err == pgx.ErrNoRows {
+// 		return  middleware.Auth{
+// 			ID: 0,
+// 			IsAdmin: false,
+// 		}, nil
+// 	}
+// 	if err !=nil {
+// 		return  middleware.Auth{
+// 			ID: 0,
+// 			IsAdmin: false,
+// 		}, nil
+// 	}
 	
-	timeNow := time.Now().UTC().Format("2006-01-02 15:04:05")
-	timeEnd := expire.Format("2006-01-02 15:04:05")
-	if timeNow > timeEnd {
-		log.Print("token expired")
-		return middleware.Auth{
-			ID: 0,
-			IsAdmin: false,
-		}, types.ErrTokenExpired
-	}
+// 	timeNow := time.Now().UTC().Format("2006-01-02 15:04:05")
+// 	timeEnd := expire.Format("2006-01-02 15:04:05")
+// 	if timeNow > timeEnd {
+// 		log.Print("token expired")
+// 		return middleware.Auth{
+// 			ID: 0,
+// 			IsAdmin: false,
+// 		}, types.ErrTokenExpired
+// 	}
 
-	for _, role := range roles {
-		if role=="ADMIN"{auth.IsAdmin=true}
-	}
-	return auth, nil
-}
+// 	for _, role := range roles {
+// 		if role=="ADMIN"{auth.IsAdmin=true}
+// 	}
+// 	return auth, nil
+// }

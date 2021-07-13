@@ -52,11 +52,11 @@ func (s *Server) Init(){
 	usersSubrouter.Use(usersAuthenticateMd)
 	usersSubrouter.HandleFunc("", s.handleGetUser).Methods(GET)
 	usersSubrouter.HandleFunc("", s.handleUserEdit).Methods(POST)
-	usersSubrouter.HandleFunc("", s.handleUserDelete).Methods(DELETE)
+	usersSubrouter.HandleFunc("", s.handleUserDelete).Methods(DELETE)	
+	usersSubrouter.HandleFunc("/auth", s.handleUserGetToken).Methods(POST)
 	usersSubrouter.HandleFunc("/{username}", s.handleGetUserByUsername).Methods(GET)
 	usersSubrouter.HandleFunc("/follow", s.handleUserFollow).Methods(POST)
-	usersSubrouter.HandleFunc("/img", s.handleUserEditImg).Methods(POST)	
-	usersSubrouter.HandleFunc("/auth", s.handleUserGetToken).Methods(POST)
+	usersSubrouter.HandleFunc("/img", s.handleUserEditImg).Methods(POST)
 
 
 	postsAuthenticateMd := middleware.Authenticate(s.userSvc.IDByToken)
