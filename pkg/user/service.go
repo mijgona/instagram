@@ -87,7 +87,7 @@ func (s Service) EditUser(ctx context.Context, item *types.User, auth middleware
 //удаляет пользователя
 func (s Service) DeleteUser(ctx context.Context, auth middleware.Auth) (error)  {		
 		_, err := s.pool.Query(ctx, `
-			DELETE FROM users_tokens WHERE user_id=$1;
+			DELETE FROM tokens WHERE user_id=$1;
 			`, auth.ID)
 		if err != nil {
 			log.Print("DeleteUser err:",err)
@@ -101,7 +101,7 @@ func (s Service) DeleteUser(ctx context.Context, auth middleware.Auth) (error)  
 			return types.ErrNoSuchUser
 		}	
 		_, err = s.pool.Query(ctx, `
-			DELETE FROM follows WHERE followed_id=$1;
+			DELETE FROM follows WHERE user_id=$1 OR followed_id=$1;
 			`, auth.ID)
 		if err != nil {
 			log.Print("DeleteUser err:",err)
@@ -136,6 +136,7 @@ func (s Service) GetUser(ctx context.Context, auth middleware.Auth, username str
 			return nil, types.ErrNoSuchUser
 		}
 	}
+	//извлекаем данные авторизованного пользователя
 	item := &types.User{}
 	err := s.pool.QueryRow(ctx, `
 		SELECT id, username, name, phone, photo, bio FROM users WHERE id=$1 and active
@@ -148,7 +149,8 @@ func (s Service) GetUser(ctx context.Context, auth middleware.Auth, username str
 		log.Print("GetUser err:",err)
 		return nil, types.ErrNoSuchUser
 	}
-
+	
+	//извлекаем подписки пользователя
 	rows, err := s.pool.Query(ctx, `
 		SELECT f.id, u.photo, u.name, u.username, f.active, f.created FROM users u, follows f
 		WHERE f.user_id=$1 AND f.followed_id=u.id AND f.active
@@ -174,6 +176,7 @@ func (s Service) GetUser(ctx context.Context, auth middleware.Auth, username str
 	}
 	rows.Close()
 
+	//извлекаем подписанных пользователей
 	rows, err = s.pool.Query(ctx, `
 		SELECT f.id, u.photo, u.name, u.username, f.active, f.created FROM users u, follows f
 		WHERE u.id=f.user_id AND f.followed_id=$1 AND f.active

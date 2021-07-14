@@ -27,7 +27,7 @@ var ErrNotAdmin = errors.New("not admin")
 
 type Wall struct {
 	User	User
-	Posts	[]Post
+	Posts	[]*Post
 }
 //User представляет информацию о пользователе.
 type User struct {

@@ -23,6 +23,8 @@ func NewService(pool *pgxpool.Pool) *Service  {
 
 func (s Service) GetPost(ctx context.Context, postID int64, auth middleware.Auth) (*types.Post, error) {
 	item := &types.Post{}
+	//При наличии лайков выдет пост с количеством лайков
+	//при отсуствии лайков выдаёт ошибку pgx.ErrNoRows
 	err := s.pool.QueryRow(ctx, `SELECT p.id, u.username, p.content, p.photo, p.tags, p.active, u.photo, COALESCE(count(p.id),0) from users u
 	JOIN posts p ON u.id=p.user_id and p.id=$1 and p.active
 	JOIN (
@@ -32,10 +34,37 @@ func (s Service) GetPost(ctx context.Context, postID int64, auth middleware.Auth
 		) ss ON ss.post_id=p.id
 	GROUP BY u.id, p.id;
 	`, postID).Scan(&item.ID, &item.Author.Name, &item.Content, &item.Photo, &item.Tags, &item.Active, &item.Author.Avatar,  &item.Likes)
-	if err != nil {
+	// при отсуствии лайков меняем запрос
+	if err == pgx.ErrNoRows {
+		err := s.pool.QueryRow(ctx, `SELECT p.id, u.username, p.content, p.photo, p.tags, p.active, u.photo from users u
+		JOIN posts p ON p.active and p.id =$1
+		WHERE p.user_id=u.id
+		GROUP BY u.id, p.id;`, postID).Scan(&item.ID, &item.Author.Name, &item.Content, &item.Photo, &item.Tags, &item.Active, &item.Author.Avatar)
+		if err != nil {	
+			log.Print("GetPost err:", err)
+			return nil, types.ErrInternal
+		}
+		
+		comments, err := s.GetComments(ctx, postID)
+		if err != nil {	
+			log.Print("GetPost err:", err)
+			return nil, types.ErrInternal
+		}
+		item.Comments=comments	
+		return item, nil
+	}
+	if err != nil{
 		log.Print("GetPost err:", err)
 		return nil, types.ErrNoSuchPost
 	}
+	//Получаем все комментарии	
+	comments, err := s.GetComments(ctx, postID)
+	if err != nil {	
+		log.Print("GetPost err:", err)
+		return nil, types.ErrInternal
+	}
+	item.Comments=comments
+	// получаем likedByMe
 	like := 0
 	err = s.pool.QueryRow(ctx, `
 		SELECT user_id from likes WHERE user_id=$1 AND post_id=$2 and active
@@ -48,7 +77,7 @@ func (s Service) GetPost(ctx context.Context, postID int64, auth middleware.Auth
 	return item, nil
 }
 
-func (s Service) GetAllPost(ctx context.Context, auth middleware.Auth, username string) ([]types.Post, error) {
+func (s Service) GetAllPost(ctx context.Context, auth middleware.Auth, username string) ([]*types.Post, error) {
 	id := auth.ID
 	if username != "" {
 		err := s.pool.QueryRow(ctx, `
@@ -64,45 +93,28 @@ func (s Service) GetAllPost(ctx context.Context, auth middleware.Auth, username 
 		}
 	}
 
-	items := []types.Post{}
+	items := []*types.Post{}
 	rows, err := s.pool.Query(ctx, `
-	SELECT p.id, u.username, p.content, p.photo, p.tags, p.active, u.photo, COALESCE(count(p.id),0) likes from users u
-	JOIN posts p ON p.active and p.user_id =$1 and p.user_id=u.id
-	JOIN (
-		SELECT l.id, l.post_id from likes l, posts p 
-		WHERE l.post_id=p.id
-		group BY l.id
-		) ss ON ss.post_id=p.id
-	GROUP BY u.id, p.id
-	ORDER BY p.created DESC
-	`,id)
+	SELECT p.id FROM posts p WHERE p.user_id=$1;
+	`, id)
 	if err != nil {
 		log.Print("GetAllPosts err:", err)
 		return nil, types.ErrNoSuchPost
 	}
 
 	for rows.Next() {
-		item := types.Post{}
-		err = rows.Scan(&item.ID, &item.Author.Name, &item.Content, &item.Photo, &item.Tags, &item.Active, &item.Author.Avatar,  &item.Likes)
-		if err != nil {
-			log.Print("GetAllPosts err:",err)
-			return nil, err
-		}
-		like := 0
-		err = s.pool.QueryRow(ctx, `
-			SELECT user_id from likes WHERE user_id=$1 AND post_id=$2 and active
-			`, id, item.ID).Scan(&like)
-		if err != nil && err != pgx.ErrNoRows {
-			log.Print("GetAllPosts err:", err)
+		item := &types.Post{}
+		err = rows.Scan(&item.ID)
+		if err != nil {	
+			log.Print("GetPost err:", err)
+			return nil, types.ErrInternal
+		}	
+		item, err = s.GetPost(context.Background(), item.ID, auth)
+		if err != nil {	
+			log.Print("GetPost err:", err)
 			return nil, types.ErrInternal
 		}
-		cmnts, err := s.GetComments(ctx, item.ID)
-		if err != nil && err != pgx.ErrNoRows {
-			log.Print("GetAllPosts err:", err)
-			return nil, types.ErrInternal
-		}
-		if like !=0 {item.LikedByMe = true}
-		item.Comments =  cmnts
+		
 		items = append(items, item)
 	}
 	rows.Close()

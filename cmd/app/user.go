@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/google/uuid"
@@ -34,13 +35,25 @@ func (s *Server) handleGetUserByUsername(writer http.ResponseWriter, request *ht
 		return
 	}
 
-	items, err := s.userSvc.GetUser(request.Context(), auth, username)
+	user, err := s.userSvc.GetUser(request.Context(), auth, username)
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		log.Print(err)
 		return
 	}
-	data, err := json.Marshal(items)
+	posts, err := s.postSvc.GetAllPost(request.Context(),auth, username)
+	if err != nil {
+			http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			log.Print(err)
+			return
+	}
+
+	wall := types.Wall{
+		User: *user,
+		Posts: posts,
+	}
+
+	data, err := json.Marshal(wall)
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		log.Print(err)
@@ -72,12 +85,33 @@ func (s *Server) handleGetUser(writer http.ResponseWriter, request *http.Request
 		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
-	wall, err := s.userSvc.GetUser(request.Context(), auth, "")
+	user, err := s.userSvc.GetUser(request.Context(), auth, "")
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		log.Print(err)
 		return
 	}
+
+	posts := []*types.Post{}
+	for _, users := range user.Follows {
+		post, err :=s.postSvc.GetAllPost(request.Context(), auth, users.UserName)
+		if err != nil {
+			http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			log.Print(err)
+			return
+		}
+		posts = append(posts, post...)
+	}
+
+	sort.Slice(posts, func(i, j int) bool {
+		return posts[i].ID>posts[j].ID
+	})
+
+	wall := types.Wall{
+		User:  *user,
+		Posts: posts,
+	}
+
 	data, err := json.Marshal(wall)
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)

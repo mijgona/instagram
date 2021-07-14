@@ -1,3 +1,24 @@
+	SELECT p.id, u.username, p.content, p.photo, p.tags, p.active, u.photo from users u
+	JOIN posts p ON p.active and p.user_id =4
+    WHERE p.user_id=u.id
+	GROUP BY u.id, p.id
+	ORDER BY p.created DESC
+
+
+SELECT p.id, u.username, p.content, p.photo, p.tags, p.active, u.photo, COALESCE(count(p.id),0) from users u
+	JOIN posts p ON u.id=p.user_id and p.id=4 and p.active
+	JOIN (
+		SELECT l.id, l.post_id from likes l, posts p 
+		WHERE l.post_id=p.id and l.active
+		group BY l.id
+		) ss ON ss.post_id=p.id
+	GROUP BY u.id, p.id
+
+
+SELECT id FROM posts WHERE user_id=4
+	ORDER BY created DESC
+
+
 SELECT p.id, u.username, p.content, p.photo, p.tags, p.active, u.photo, COALESCE(count(p.id),0) likes from users u
 	JOIN posts p ON p.active and p.user_id =17 and p.user_id=u.id
 	JOIN (
